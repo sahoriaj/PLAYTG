@@ -181,7 +181,7 @@ async def stream(request):
             start = int(m.group(1))
             if m.group(2):
                 end = min(int(m.group(2)), size - 1)
-        if start > end || start >= size:
+        if start > end or start >= size:
             return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
         status = 206
     length = end - start + 1
