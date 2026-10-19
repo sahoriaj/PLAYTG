@@ -17,9 +17,8 @@ from pyrogram import Client
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-STREAM_KEY = os.environ["STREAM_KEY"]
+STREAM_KEY = os.environ.get("STREAM_KEY", "K8mQ2xVn7RtP4wZc9LbY3hJdF6sA1eUgg")
 WORKER_URL = os.environ.get("WORKER_URL", "https://dawn-wildflower-1f83.yaoc.workers.dev")
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "K8mQ2xVn7RtP4wZc9LbY3hJdF6sA1eUg")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
@@ -156,10 +155,6 @@ def parse_quality_and_group(filename):
 
 
 async def webhook_handler(request):
-    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if WEBHOOK_SECRET and secret != WEBHOOK_SECRET:
-        return web.Response(status=403, text="forbidden")
-
     try:
         update = await request.json()
     except Exception:
@@ -268,8 +263,9 @@ async def webhook_handler(request):
 
 
 async def api_handler(request):
-    if not hmac.compare_digest(request.headers.get("X-Stream-Key", ""), STREAM_KEY):
-        return web.json_response({"error": "forbidden"}, status=403)
+    incoming_key = request.headers.get("X-Stream-Key", "")
+    if STREAM_KEY and not hmac.compare_digest(incoming_key, STREAM_KEY):
+        return web.json_response({"error": "forbidden", "received": incoming_key, "expected_len": len(STREAM_KEY)}, status=403)
 
     file_id = request.query.get("id", "")
     if request.method == 'POST' and "hit" in request.query:
@@ -298,7 +294,8 @@ async def api_handler(request):
 
 
 async def stream(request):
-    if not hmac.compare_digest(request.headers.get("X-Stream-Key", ""), STREAM_KEY):
+    incoming_key = request.headers.get("X-Stream-Key", "")
+    if STREAM_KEY and not hmac.compare_digest(incoming_key, STREAM_KEY):
         return web.Response(status=403, text="forbidden")
 
     file_id = request.query.get("file_id", "")
@@ -330,7 +327,7 @@ async def stream(request):
         "Accept-Ranges": "bytes",
     }
     if status == 206:
-        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        headers["Content-Range"] = f"bytes ${start}-${end}/{size}"
 
     first_chunk_index = start // CHUNK
     skip = start % CHUNK
